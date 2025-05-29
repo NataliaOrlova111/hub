@@ -1,35 +1,26 @@
 import os
+from aiogram import Bot, Dispatcher, executor, types
 
-# Первое сообщение в консоль для диагностики
-print("BOT: запускаюсь…")
-
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message
-from aiogram.filters import Command
-
-# Читаем токен из переменной окружения
 API_TOKEN = os.getenv("TELEGRAM_TOKEN")
-if not API_TOKEN:
-    print("ERROR: Переменная TELEGRAM_TOKEN не установлена")
-    exit(1)
+CHANNEL = "@MirStation"  # юзернейм вашего канала
 
-# Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
-# Обработчик команды /start
-@dp.message(Command("start"))
-async def send_guide(message: Message):
-    await message.answer(
-        "Привет! 🌿\n"
-        "Добро пожаловать в Mir Station.\n"
-        "Вот ваш гайд «Нетревожное цветоводство»:"
-    )
-    # Отправляем PDF (убедитесь, что файл лежит по этому пути)
-    with open("pages/netrevozhnoe_cvetovodstvo_guide.pdf", "rb") as f:
-        await message.answer_document(f)
+@dp.message_handler(commands=["start"])
+async def on_start(message: types.Message):
+    user = await bot.get_chat_member(CHANNEL, message.from_user.id)
+    if user.status in ("creator", "administrator", "member"):
+        # Если подписан
+        await message.reply("Спасибо за подписку! Вот ваш гайд:")
+        with open("pages/netrevozhnoe_cvetovodstvo_guide.pdf", "rb") as f:
+            await bot.send_document(message.chat.id, f)
+    else:
+        # Если не подписан
+        invite = await bot.export_chat_invite_link(CHANNEL)
+        await message.reply(
+            "Чтобы получить гайд, подпишитесь на наш канал:\n" + invite
+        )
 
-# Второе сообщение в консоль перед запуском polling
 if __name__ == "__main__":
-    print("BOT: polling запущен")
-    dp.run_polling(bot)
+    executor.start_polling(dp, skip_updates=True)
